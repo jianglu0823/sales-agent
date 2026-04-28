@@ -1,0 +1,779 @@
+openapi: 3.0.3
+info:
+  title: Sales Agent API
+  description: 智能销售数据分析 Agent 后端 API 规范文档
+  version: 1.0.0
+  contact:
+    name: JiChi AI
+    email: support@jichi.com
+
+servers:
+  - url: http://localhost:8087
+    description: 本地开发环境
+  - url: https://api.jichi.com/sales-agent
+    description: 生产环境
+
+tags:
+  - name: auth
+    description: 认证相关接口
+  - name: agent
+    description: AI Agent 聊天接口
+  - name: tool-test
+    description: 工具测试接口（仅用于调试）
+
+security:
+  - ApiKeyAuth: []
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Sa-Token 认证令牌，登录后获取
+
+  schemas:
+    # 请求模型
+    ChatRequest:
+      type: object
+      description: 聊天请求
+      required:
+        - sessionId
+        - message
+      properties:
+        sessionId:
+          type: string
+          maxLength: 100
+          description: 会话ID，用于维持对话上下文
+        message:
+          type: string
+          maxLength: 2000
+          description: 用户消息内容
+
+    LoginRequest:
+      type: object
+      description: 登录请求
+      required:
+        - repId
+      properties:
+        repId:
+          type: integer
+          format: int64
+          description: 销售员ID
+
+    QueryRequest:
+      type: object
+      description: 订单查询请求
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期，格式 yyyy-MM-dd
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期，格式 yyyy-MM-dd
+        regionName:
+          type: string
+          description: 大区名称（华东区/华南区/华北区/西南区），传 null 表示全公司
+        repName:
+          type: string
+          description: 销售员姓名，传 null 表示不限制
+        limit:
+          type: integer
+          default: 20
+          maximum: 50
+          description: 最多返回条数
+
+    RankRequest:
+      type: object
+      description: 排名查询请求
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+        regionName:
+          type: string
+          description: 大区名称，传 null 表示全公司
+        topN:
+          type: integer
+          default: 5
+          description: 返回前 N 名
+
+    RangeRequest:
+      type: object
+      description: 日期范围请求
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+
+    ProductRankRequest:
+      type: object
+      description: 产品排名请求
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+        topN:
+          type: integer
+          default: 5
+          description: 返回前 N 名
+
+    MomRequest:
+      type: object
+      description: 环比分析请求
+      properties:
+        currentStart:
+          type: string
+          format: date
+          description: 当前周期开始日期
+        currentEnd:
+          type: string
+          format: date
+          description: 当前周期结束日期
+        prevStart:
+          type: string
+          format: date
+          description: 对比周期开始日期
+        prevEnd:
+          type: string
+          format: date
+          description: 对比周期结束日期
+        regionName:
+          type: string
+          description: 大区名称，传 null 表示全公司
+
+    YoyRequest:
+      type: object
+      description: 同比分析请求
+      properties:
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+        regionName:
+          type: string
+          description: 大区名称，传 null 表示全公司
+
+    TrendRequest:
+      type: object
+      description: 趋势查询请求
+      properties:
+        months:
+          type: integer
+          default: 6
+          maximum: 24
+          description: 近多少个月的数据
+        regionName:
+          type: string
+          description: 大区名称，传 null 表示全公司
+
+    LineChartRequest:
+      type: object
+      description: 折线图请求
+      properties:
+        months:
+          type: integer
+          default: 6
+          maximum: 24
+          description: 近多少个月的数据
+        regionName:
+          type: string
+          description: 大区名称，传 null 表示全公司
+        title:
+          type: string
+          description: 图表标题
+
+    BarChartRequest:
+      type: object
+      description: 柱状图请求
+      properties:
+        dimension:
+          type: string
+          enum: [region, product, rep]
+          description: 维度（region-大区, product-产品, rep-销售员）
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+        title:
+          type: string
+          description: 图表标题
+
+    PieChartRequest:
+      type: object
+      description: 饼图请求
+      properties:
+        dimension:
+          type: string
+          enum: [region, product, rep]
+          description: 维度（region-大区, product-产品, rep-销售员）
+        startDate:
+          type: string
+          format: date
+          description: 查询开始日期
+        endDate:
+          type: string
+          format: date
+          description: 查询结束日期
+        title:
+          type: string
+          description: 图表标题
+
+    # 响应模型
+    ChatResponse:
+      type: object
+      description: 聊天响应
+      properties:
+        sessionId:
+          type: string
+          description: 会话ID
+        reply:
+          type: string
+          description: AI 回复内容
+        durationMs:
+          type: integer
+          format: int64
+          description: 请求耗时（毫秒）
+
+    LoginResponse:
+      type: object
+      description: 登录响应
+      properties:
+        token:
+          type: string
+          description: 认证令牌
+        username:
+          type: string
+          description: 用户名
+        role:
+          type: string
+          enum: [SALES_REP, SALES_MANAGER, SALES_DIRECTOR]
+          description: 用户角色
+
+    SessionClearResponse:
+      type: object
+      description: 会话清除响应
+      properties:
+        message:
+          type: string
+          description: 提示信息
+        sessionId:
+          type: string
+          description: 被清除的会话ID
+
+    ErrorResponse:
+      type: object
+      description: 错误响应
+      properties:
+        code:
+          type: integer
+          description: 错误码
+        message:
+          type: string
+          description: 错误信息
+        timestamp:
+          type: string
+          format: date-time
+          description: 错误发生时间
+
+  responses:
+    Unauthorized:
+      description: 未授权访问
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 401
+            message: 请先登录
+            timestamp: 2024-01-15T10:30:00Z
+
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 400
+            message: sessionId 不能为空
+            timestamp: 2024-01-15T10:30:00Z
+
+    InternalServerError:
+      description: 服务器内部错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 500
+            message: 服务暂时不可用
+            timestamp: 2024-01-15T10:30:00Z
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: 用户登录
+      description: 使用销售员ID登录系统，获取认证令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              repId: 1
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                token: abc123def456
+                username: 李明
+                role: SALES_MANAGER
+        '400':
+          description: 请求参数错误
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: 用户登出
+      description: 清除当前用户的登录状态
+      responses:
+        '200':
+          description: 登出成功
+          content:
+            application/json:
+              example:
+                message: 已退出登录
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /agent/chat:
+    post:
+      tags:
+        - agent
+      summary: AI 聊天（同步）
+      description: 与销售 Agent 进行对话，获取完整回复
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            example:
+              sessionId: user-123
+              message: 查询本月华东区的销售总额
+      responses:
+        '200':
+          description: 聊天成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              example:
+                sessionId: user-123
+                reply: 本月华东区销售总额为 ¥1,234,567，同比增长 15.3%
+                durationMs: 2345
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agent/chat/stream:
+    post:
+      tags:
+        - agent
+      summary: AI 聊天（流式）
+      description: 与销售 Agent 进行对话，流式获取回复（SSE）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            example:
+              sessionId: user-123
+              message: 帮我生成近6个月的销售趋势图
+      responses:
+        '200':
+          description: 流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: token
+                data: 已
+                
+                event: token
+                data: 为您
+                
+                event: token
+                data: 生成近6个月销售趋势折线图：
+                
+                event: token
+                data: CHART_JSON:{"xAxis":["2024-01","2024-02",...],...}
+                
+                event: done
+                data: [DONE]
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /agent/session/{sessionId}:
+    delete:
+      tags:
+        - agent
+      summary: 清除会话记忆
+      description: 删除指定会话的对话历史
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 会话ID
+      responses:
+        '200':
+          description: 清除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionClearResponse'
+              example:
+                message: 会话记忆已清除
+                sessionId: user-123
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ============ 工具测试接口 ============
+
+  /test/tool/query-orders:
+    post:
+      tags:
+        - tool-test
+      summary: 查询订单（工具测试）
+      description: 测试 SalesQueryTool 的订单查询功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              regionName: 华东区
+              limit: 10
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                查询结果（共 156 条）：
+                1. 订单号: SO-202401001, 客户: 某科技公司, 金额: ¥12,500, 日期: 2024-01-05
+                2. 订单号: SO-202401002, 客户: 某贸易公司, 金额: ¥8,300, 日期: 2024-01-08
+                ...
+
+  /test/tool/top-reps:
+    post:
+      tags:
+        - tool-test
+      summary: 顶级销售员排名（工具测试）
+      description: 测试 SalesSummaryTool 的销售员排名功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RankRequest'
+            example:
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              topN: 5
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                2024年1月销售员业绩排名（TOP 5）：
+                1. 李明 - ¥285,000（华东区）
+                2. 张伟 - ¥234,500（华东区）
+                3. 陈强 - ¥210,800（华南区）
+                4. 刘洋 - ¥198,200（华南区）
+                5. 吴刚 - ¥185,600（西南区）
+
+  /test/tool/region-ranking:
+    post:
+      tags:
+        - tool-test
+      summary: 大区销售排名（工具测试）
+      description: 测试 SalesSummaryTool 的大区排名功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RangeRequest'
+            example:
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                2024年1月各大区销售排名：
+                1. 华东区 - ¥890,500（占比 35.2%）
+                2. 华南区 - ¥725,300（占比 28.7%）
+                3. 西南区 - ¥546,800（占比 21.6%）
+                4. 华北区 - ¥365,200（占比 14.5%）
+
+  /test/tool/top-products:
+    post:
+      tags:
+        - tool-test
+      summary: 顶级产品排名（工具测试）
+      description: 测试 SalesSummaryTool 的产品排名功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductRankRequest'
+            example:
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              topN: 5
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                2024年1月产品销量排名（TOP 5）：
+                1. SKU-1001 笔记本电脑 - ¥320,000（32台）
+                2. SKU-2001 智能手机 - ¥285,000（57台）
+                3. SKU-1002 平板电脑 - ¥198,000（44台）
+                4. SKU-3001 运动手表 - ¥145,000（72台）
+                5. SKU-2002 蓝牙耳机 - ¥98,500（197台）
+
+  /test/tool/month-over-month:
+    post:
+      tags:
+        - tool-test
+      summary: 环比分析（工具测试）
+      description: 测试 SalesTrendTool 的环比分析功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MomRequest'
+            example:
+              currentStart: 2024-02-01
+              currentEnd: 2024-02-29
+              prevStart: 2024-01-01
+              prevEnd: 2024-01-31
+              regionName: 华东区
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                华东区 2024年2月 vs 1月 环比分析：
+                - 销售额：¥987,500 vs ¥890,500
+                - 环比增长：+10.9%
+                - 订单数量：156 vs 142（+9.9%）
+                - 客单价：¥6,330 vs ¥6,271（+0.9%）
+
+  /test/tool/year-over-year:
+    post:
+      tags:
+        - tool-test
+      summary: 同比分析（工具测试）
+      description: 测试 SalesTrendTool 的同比分析功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/YoyRequest'
+            example:
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              regionName: null
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                全公司 2024年1月 vs 2023年1月 同比分析：
+                - 销售额：¥2,527,800 vs ¥2,156,300
+                - 同比增长：+17.2%
+                - 订单数量：512 vs 448（+14.3%）
+                - 毛利：¥758,340 vs ¥625,327（+21.3%）
+
+  /test/tool/monthly-trend:
+    post:
+      tags:
+        - tool-test
+      summary: 月度趋势（工具测试）
+      description: 测试 SalesTrendTool 的月度趋势功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrendRequest'
+            example:
+              months: 6
+              regionName: null
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            text/plain:
+              example: |
+                全公司近6个月销售趋势：
+                2024-08: ¥2,156,000
+                2024-09: ¥2,345,000（+8.8%）
+                2024-10: ¥2,456,000（+4.7%）
+                2024-11: ¥2,678,000（+9.0%）
+                2024-12: ¥3,120,000（+16.5%）
+                2024-01: ¥2,527,800（-19.0%）
+
+  /test/tool/line-chart:
+    post:
+      tags:
+        - tool-test
+      summary: 折线图（工具测试）
+      description: 测试 ChartGeneratorTool 的折线图生成功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LineChartRequest'
+            example:
+              months: 6
+              regionName: 华东区
+              title: 华东区近6个月销售趋势
+      responses:
+        '200':
+          description: 生成成功
+          content:
+            text/plain:
+              example: |
+                CHART_JSON:{"title":{"text":"华东区近6个月销售趋势"},"xAxis":{"type":"category","data":["2024-08","2024-09","2024-10","2024-11","2024-12","2024-01"]},"yAxis":{"type":"value"},"series":[{"name":"销售额","type":"line","data":[856000,923000,987000,1056000,1189000,987500]}]}
+
+  /test/tool/bar-chart:
+    post:
+      tags:
+        - tool-test
+      summary: 柱状图（工具测试）
+      description: 测试 ChartGeneratorTool 的柱状图生成功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BarChartRequest'
+            example:
+              dimension: region
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              title: 2024年1月各大区销售额对比
+      responses:
+        '200':
+          description: 生成成功
+          content:
+            text/plain:
+              example: |
+                CHART_JSON:{"title":{"text":"2024年1月各大区销售额对比"},"xAxis":{"type":"category","data":["华东区","华南区","西南区","华北区"]},"yAxis":{"type":"value"},"series":[{"name":"销售额","type":"bar","data":[890500,725300,546800,365200]}]}
+
+  /test/tool/pie-chart:
+    post:
+      tags:
+        - tool-test
+      summary: 饼图（工具测试）
+      description: 测试 ChartGeneratorTool 的饼图生成功能
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PieChartRequest'
+            example:
+              dimension: product
+              startDate: 2024-01-01
+              endDate: 2024-01-31
+              title: 2024年1月产品销售占比
+      responses:
+        '200':
+          description: 生成成功
+          content:
+            text/plain:
+              example: |
+                CHART_JSON:{"title":{"text":"2024年1月产品销售占比"},"series":[{"name":"销售额","type":"pie","data":[{"name":"笔记本电脑","value":320000},{"name":"智能手机","value":285000},{"name":"平板电脑","value":198000},{"name":"运动手表","value":145000},{"name":"其他","value":127800}]}]}
+
+  /test/tool/detect-anomalies:
+    post:
+      tags:
+        - tool-test
+      summary: 异常检测（工具测试）
+      description: 测试 AnomalyDetectionTool 的异常检测功能
+      responses:
+        '200':
+          description: 检测成功
+          content:
+            text/plain:
+              example: |
+                检测到以下异常：
+                【订单暴跌预警】华北区近14天无订单，与上月同期相比下降 100%
+                【断货预警】产品 SKU-8821 近30天零销售，库存可能不足
+                【业绩断崖预警】销售员 张磊 近60天仅1单，业绩严重下滑
+                【退单预警】销售员 王芳 退单率达 35%，高于公司平均水平
+
+
